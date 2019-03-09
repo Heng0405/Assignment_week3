@@ -1,6 +1,6 @@
 package objsets
 
-import TweetReader._
+import java.util.NoSuchElementException
 
 /**
  * A class to represent tweets.
@@ -65,7 +65,7 @@ abstract class TweetSet {
    * Question: Should we implment this method here, or should it remain abstract
    * and be implemented in the subclasses?
    */
-    def mostRetweeted: Tweet = ???
+    def mostRetweeted: Tweet = Tweet
   
   /**
    * Returns a list containing all tweets of this set, sorted by retweet count
@@ -107,11 +107,18 @@ abstract class TweetSet {
 }
 
 class Empty extends TweetSet {
-    def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = ???
+  def isEmpty: Boolean =  true
+
+  def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = acc
   
   /**
    * The following methods are already implemented
    */
+  def union(that: TweetSet) : TweetSet = that
+
+  def mostRetweeted: Tweet = throw NoSuchElementException("Tweet is empty")
+
+  def descendingByRetweet: TweetList = Nil
 
   def contains(tweet: Tweet): Boolean = false
 
@@ -124,26 +131,32 @@ class Empty extends TweetSet {
 
 class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
-    def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = ???
-  
-    
-  /**
-   * The following methods are already implemented
-   */
+    def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet =
+      if(p(elem)) left.filterAcc(p,right.filterAcc(p,acc.incl(elem)))
+      else left.filterAcc(p,right.filterAcc(p,acc))
+
+  def union(that: TweetSet)=that.filerAcc(atweet=>!this.contains(atweet),this)
+
+  def mostRetweeted: Tweet={
+    def find(tweetA: Tweet,tweetB: Tweet): Tweet = {
+      if(tweetA.retweets > tweetB.retweets) tweetA else tweetB
+    }
+    if(left.isEmpty && right.isEmpty) elem
+    else if(left.isEmpty) find(right.mostRetweeted,elem)
+    else if(right.isEmpty) find(left.mostRetweeted,elem)
+    else find(left.mostRetweeted,find(left.mostRetweeted,elem))
+  }
+
+  def descendingByRetweet: TweetList =
+    new Cons(mostRetweeted,remove(mostRetweeted).descendingByRetweet)
 
   def contains(x: Tweet): Boolean =
-    if (x.text < elem.text) left.contains(x)
+    if(x.text < elem.text) left.contains(x)
     else if (elem.text < x.text) right.contains(x)
     else true
 
-  def incl(x: Tweet): TweetSet = {
-    if (x.text < elem.text) new NonEmpty(elem, left.incl(x), right)
-    else if (elem.text < x.text) new NonEmpty(elem, left, right.incl(x))
-    else this
-  }
-
   def remove(tw: Tweet): TweetSet =
-    if (tw.text < elem.text) new NonEmpty(elem, left.remove(tw), right)
+    if(tw.text < elem.text) new NonEmpty(elem,left.remove(tw),right)
     else if (elem.text < tw.text) new NonEmpty(elem, left, right.remove(tw))
     else left.union(right)
 
@@ -152,6 +165,15 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     left.foreach(f)
     right.foreach(f)
   }
+
+
+
+    
+  /**
+   * The following methods are already implemented
+   */
+
+
 }
 
 trait TweetList {
